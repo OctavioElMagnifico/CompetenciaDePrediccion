@@ -1,0 +1,34 @@
+---
+title: 'Clasificación'
+author: 'Barrera Borla, Gonzalo y Duarte, Octavio M.'
+date: '27 de Noviembre'
+output:
+  html_document
+---
+
+```{r librerias}
+library('tidyverse')
+```
+
+# Carga de los Datos
+
+```{r datos}
+read_table(
+  "Concurso_Estima.txt",
+  col_names = c( 'ciclo', 'minMem', 'maxMem', 'cache', 'minCanales', 'maxCanales', 'perfoRelativa' ),
+  ) -> datos
+```
+
+# Exploración
+
+Parece natural introducir una transformada del tiempo de ciclo de procesador que sea la inversa, "frecuencia". Sobre todo porque la relación de "más es mejor" es más intruitiva.
+
+```{r exploración}
+datos <- mutate( datos, frecuencia = 1/ciclo )
+
+datos %>% gather( 'frecuencia', 'ciclo', 'minMem', 'maxMem', 'cache', 'minCanales', 'maxCanales', key = explicadora, value = valor  ) %>% ggplot() +
+            aes( y = perfoRelativa, x = valor, color = explicadora ) +
+            geom_point() +
+  facet_grid( .~explicadora, scales = "free_x" )
+```
+
