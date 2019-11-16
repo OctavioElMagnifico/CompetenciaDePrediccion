@@ -62,10 +62,22 @@ datos %>% gather( 'logPerfo', 'raizPerfo' , key = respuesta, value = valor  ) %>
 Ambas transformaciones parecen haber reducido drásticamente la heteroscedasticidad. No pude poner la original en el gráfico porque no logro que `facet_grid` responda al comando `scales = "free"` y como tiene una escala enorme no dejaba visualizar las transformadas. 
 
 
+## Intento de Optimizar la Transformación Potencial (es decir, la mejor raíz) sobre `perfoRelativa`.
+
+### Elegir una función objetivo
+
+No es fácil elegir una función objetivo. 
+
+Opciones posibles:
+*Estadístico de algún test (por ejemplo Breusch y pagan).
+*El r cuadrado ajustado de una regresión, en principio un ajuste lineal.
+*Una medida ad-hoc del tipo "diferencia entre la varianza en el 2 y en el 4 quintiles" ordenadas según `perfoRelativa`. Quizás es mejor tomar el segundo y noveno deciles, que se asocian a la poda al 20% (aunque esta es sobre el residuo).
+
+
 
 ## Transformando una Explicadora
 
-```{r minMem transformada}
+```{r perfo transformada}
 datos <- mutate( datos, logMinMem = log(minMem), raizMinMem = sqrt(minMem) )
 
 datos %>% gather( 'minMem', 'logMinMem', 'raizMinMem' , key = explicadora, value = valor  ) %>% dplyr::select( one_of('perfoRelativa','explicadora','valor') ) %>% ggplot() +
