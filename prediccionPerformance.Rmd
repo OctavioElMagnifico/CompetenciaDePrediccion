@@ -23,12 +23,29 @@ read_table(
 
 Parece natural introducir una transformada del tiempo de ciclo de procesador que sea la inversa, "frecuencia". Sobre todo porque la relación de "más es mejor" es más intruitiva.
 
+## Gráfico de Facetas
+
 ```{r exploración}
 datos <- mutate( datos, frecuencia = 1/ciclo )
 
 datos %>% gather( 'frecuencia', 'ciclo', 'minMem', 'maxMem', 'cache', 'minCanales', 'maxCanales', key = explicadora, value = valor  ) %>% ggplot() +
             aes( y = perfoRelativa, x = valor, color = explicadora ) +
             geom_point() +
-  facet_grid( .~explicadora, scales = "free_x" )
+  facet_wrap( .~explicadora, scales = "free_x" )
 ```
 
+## Correlaciones
+
+```{r correlaciones}
+correlaciones <- cor( datos )
+correlaciones
+```
+
+* La mejor correlación con la variable en estudio la presentan las variables asociadas a la memoria `minMem` con `r correlaciones['minMem','perfoRelativa']` y `maxMem` `r correlaciones['maxMem','perfoRelativa']`.
+* La correlación entre ellas mismas es alta `r correlaciones['minMem','maxMem']`.
+* Excepto `ciclo` todas las demás tienen una correlación suficiente como para suponer que se puede extraer información útil al modelo de ellas. La transformada de `ciclo`, `frecuencia` sí muestra una correlación razonable. 
+
+
+# Intento de Transformar para lograr Linealidad y Homoscedasticidad.
+
+```{r }```
