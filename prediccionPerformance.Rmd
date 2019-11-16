@@ -48,4 +48,47 @@ correlaciones
 
 # Intento de Transformar para lograr Linealidad y Homoscedasticidad.
 
-```{r }```
+## Transformando la Repuesta
+
+```{r minMem transformada}
+datos <- mutate( datos, logPerfo = log(perfoRelativa), raizPerfo = sqrt(perfoRelativa) )
+
+datos %>% gather( 'logPerfo', 'raizPerfo' , key = respuesta, value = valor  ) %>%  ggplot() +
+  aes( x = minMem, y = valor, color = respuesta ) +
+  geom_point() +
+  facet_grid( .~respuesta )
+```
+
+Ambas transformaciones parecen haber reducido drásticamente la heteroscedasticidad. No pude poner la original en el gráfico porque no logro que `facet_grid` responda al comando `scales = "free"` y como tiene una escala enorme no dejaba visualizar las transformadas. 
+
+
+
+## Transformando una Explicadora
+
+```{r minMem transformada}
+datos <- mutate( datos, logMinMem = log(minMem), raizMinMem = sqrt(minMem) )
+
+datos %>% gather( 'minMem', 'logMinMem', 'raizMinMem' , key = explicadora, value = valor  ) %>% dplyr::select( one_of('perfoRelativa','explicadora','valor') ) %>% ggplot() +
+  aes( y = perfoRelativa, x = valor, color = explicadora ) +
+  geom_point() +
+  facet_grid( .~explicadora, scales = "free" )
+```
+
+
+Los dos problemas son la acumulación de los datos en los primeros valores de la variable y la heteroscedasticidad. 
+
+## Primer Intento para Reducir la Heteroscedasticidad
+
+
+# Ideas no Descabelladas
+
+* Él dio en clase un truco econométrico que es usar los residuos de un modelo lineal como estimadores de los pesos para hacer cuadrados pesados ordinarios pesados. Es decir, estos residuos pueden ser la matriz de covarianzas. Tengo que releer lo que anotó. 
+
+# Ideas Descabelladas
+
+## Usar la ley de Moore para obtenter una variable análoga a "Tiempo".
+
+En aquellos tiempos la relación se cumplía muy bien (creo que era duplicación de la perforance cada dos años). Quizás se puede transformar la performance relativa en una serie de tiempo y usar algún método para series de tiempo autoregresivas. 
+Lo bueno de algo así es que se come la heteroscedasticidad. 
+
+Lo malo es que es un delirio. 
