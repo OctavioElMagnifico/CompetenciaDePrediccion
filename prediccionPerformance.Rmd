@@ -43,7 +43,7 @@ correlaciones
 
 * La mejor correlación con la variable en estudio la presentan las variables asociadas a la memoria `minMem` con `r correlaciones['minMem','perfoRelativa']` y `maxMem` `r correlaciones['maxMem','perfoRelativa']`.
 * La correlación entre ellas mismas es alta `r correlaciones['minMem','maxMem']`.
-* Excepto `ciclo` todas las demás tienen una correlación suficiente como para suponer que se puede extraer información útil al modelo de ellas. La transformada de `ciclo`, `frecuencia` sí muestra una correlación razonable. 
+* Excepto `ciclo` todas las demás tienen una correlación suficiente como para suponer que se puede extraer información útil al modelo de ellas. La transformada de `ciclo`, `frecuencia` sí muestra una correlación razonable.
 
 
 # Intento de Transformar para lograr Linealidad y Homoscedasticidad.
@@ -73,6 +73,84 @@ Opciones posibles:
 *El r cuadrado ajustado de una regresión, en principio un ajuste lineal.
 *Una medida ad-hoc del tipo "diferencia entre la varianza en el 2 y en el 4 quintiles" ordenadas según `perfoRelativa`. Quizás es mejor tomar el segundo y noveno deciles, que se asocian a la poda al 20% (aunque esta es sobre el residuo).
 
+```{r herramientas para optimización}
+# Esta función necesita una función medida que es por ejemplo la llamada a un modelo lineal. Lo ideal es currificarla con este parámetro para mayor comodidad.
+
+unPasoBiparticion <- function(inf, medidaI, sup, medidaS, funcionMedida, optimoBuscado = c( "max","min" )) {
+  candidato <- 0.5*(sup + inf)
+  medidaC <- funcionMedida(candidato)
+  tabla <- tibble(
+    lambda = c(inf,sup,candidato),
+    medida = c(medidaI,medidaS,medidaC)
+  )
+  indiceMenorMedida <- which( tabla$medida == reduce(tabla$medida,min) )
+  indiceMayorMedida <- which( tabla$medida == reduce(tabla$medida,max) )
+  indiceARetirar <- ifelse( optimoBuscado == 'max', indiceMenorMedida, indiceMayorMedida )
+  tabla <- tabla[-indiceARetirar,]
+  indiceInf <- which( tabla$medida == reduce(tabla$medida,min) )
+  indiceSup <- which( tabla$medida == reduce(tabla$medida,max) )
+  return(
+    list(
+      "inf" = (tabla$lambda)[indiceInf],
+      "medidaI" = (tabla$medida)[indiceInf],
+      "sup" = (tabla$lambda)[indiceSup],
+      "medidaS" = (tabla$medida)[indiceSup]
+    )
+  )
+}
+
+#esta función necesita como argumento una función de paso de la bipartición deseada que toma cuatro argumentos, es la versión curryficada de unPasoBiparticion. Lo ideal es curryficar también.
+
+iterarBiparticion <- function(n, inf0, sup0, funcionPasoBiparticion, funcionMedida) {
+  inf <- inf0
+  medidaI <- funcionMedida(inf)
+  sup <- sup0
+  medidaS <- funcionMedida(sup)
+  while ( n > 0 ) {
+    arg <- funcionPasoBiparticion(inf, medidaI, sup, medidaS)
+    n <- n-1
+    inf <- arg$inf
+    medidaI <- arg$medidaI
+    sup <- arg$sup
+    medidaS <- arg$medidaS
+  }
+  return(
+    list(
+      "lambda" = sup,
+      "medida" = medidaS
+    )
+  )
+}
+```
+
+```{r optimizacion en el exponente}
+explicadoras <- c('frecuencia', 'minMem', 'maxMem', 'cache', 'minCanales', 'maxCanales')
+
+# Definimos la función objetivo que sólo toma el parámetro a optimizar y tiene fijos la tabla, modelo, etc. 
+
+varianzaObjetivo <- function(lambda) {
+  modeloLineal <- lm( perfoRelativa^lambda ~ frecuencia + minMem+ maxMem+ cache+ minCanales+ maxCanales, datos )
+  varianza <- ( summary( modeloLineal ) )$sigma
+  return(varianza)
+}
+
+# definimos un paso de la optimización, que fija la función de medida u objetivo y el tipo de extremo. 
+
+pasoOptimizarVarianza <- function(inf, medidaI, sup, medidaS)
+{
+  unPasoBiparticion(inf, medidaI, sup, medidaS,
+                    varianzaObjetivo,
+                    optimoBuscado = "min"
+)
+}
+
+# usamos la función de iterar para lograr la deseada en este caso. 
+
+optimizarVarianza <- function(n, inf0, sup0)  {
+  iterarBiparticion(n, inf0, sup0, pasoOptimizarVarianza, varianzaObjetivo)
+}
+
+```
 
 
 ## Transformando una Explicadora
@@ -95,6 +173,7 @@ Los dos problemas son la acumulación de los datos en los primeros valores de la
 # Ideas no Descabelladas
 
 * Él dio en clase un truco econométrico que es usar los residuos de un modelo lineal como estimadores de los pesos para hacer cuadrados pesados ordinarios pesados. Es decir, estos residuos pueden ser la matriz de covarianzas. Tengo que releer lo que anotó. 
+* Regresión no paramétrica por núcleos (la de los kernel de análisis exploratorio).
 
 # Ideas Descabelladas
 

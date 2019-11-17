@@ -449,6 +449,72 @@ datos %&gt;% gather( &#39;logPerfo&#39;, &#39;raizPerfo&#39; , key = respuesta, 
 <h3>Elegir una función objetivo</h3>
 <p>No es fácil elegir una función objetivo.</p>
 <p>Opciones posibles: <em>Estadístico de algún test (por ejemplo Breusch y pagan). </em>El r cuadrado ajustado de una regresión, en principio un ajuste lineal. *Una medida ad-hoc del tipo “diferencia entre la varianza en el 2 y en el 4 quintiles” ordenadas según <code>perfoRelativa</code>. Quizás es mejor tomar el segundo y noveno deciles, que se asocian a la poda al 20% (aunque esta es sobre el residuo).</p>
+<pre class="r"><code># Esta función necesita una función medida que es por ejemplo la llamada a un modelo lineal. Lo ideal es currificarla con este parámetro para mayor comodidad.
+
+unPasoBiparticion &lt;- function(inf, medidaI, sup, medidaS, funcionMedida, optimoBuscado = c( &quot;max&quot;,&quot;min&quot; )) {
+  candidato &lt;- 0.5*(sup + inf)
+  medidaC &lt;- funcionMedida(candidato)
+  tabla &lt;- tibble(
+    lambda = c(inf,sup,candidato),
+    medida = c(medidaI,medidaS,medidaC)
+  )
+  indiceMenorMedida &lt;- which( tabla$medida == reduce(tabla$medida,min) )
+  indiceMayorMedida &lt;- which( tabla$medida == reduce(tabla$medida,min) )
+  indiceARetirar &lt;- ifelse( optimoBuscado == &#39;max&#39;, indiceMenorMedida, indiceMayorMedida )
+  tabla &lt;- tabla[-indiceARetirar,]
+  indiceInf &lt;- which( tabla$medida == reduce(tabla$medida,min) )
+  indiceSup &lt;- which( tabla$medida == reduce(tabla$medida,max) )
+  return(
+    list(
+      &quot;inf&quot; = (tabla$lambda)[indiceInf],
+      &quot;medidaI&quot; = (tabla$medida)[indiceInf],
+      &quot;sup&quot; = (tabla$lambda)[indiceSup],
+      &quot;medidaS&quot; = (tabla$medida)[indiceSup]
+    )
+  )
+}
+
+#esta función necesita como argumento una función de paso de la bipartición deseada que toma cuatro argumentos, es la versión curryficada de unPasoBiparticion. Lo ideal es curryficar también.
+
+iterarBiparticion &lt;- function(n, inf0, sup0, funcionPasoBiparticion, funcionMedida) {
+  inf &lt;- inf0
+  medidaI &lt;- funcionMedida(inf)
+  sup &lt;- sup0
+  medidaS &lt;- funcionMedida(sup)
+  while ( n &gt; 0 ) {
+    arg &lt;- funcionPasoBiparticion(inf, medidaI, sup, medidaS)
+    n &lt;- n-1
+    inf &lt;- arg$inf
+    medidaI &lt;- arg$medidaI
+    sup &lt;- arg$sup
+    medidaS &lt;- arg$medidaS
+  }
+  return(
+    list(
+      &quot;lambda&quot; = sup,
+      &quot;medida&quot; = medidaS
+    )
+  )
+}</code></pre>
+<pre class="r"><code>explicadoras &lt;- c(&#39;frecuencia&#39;, &#39;minMem&#39;, &#39;maxMem&#39;, &#39;cache&#39;, &#39;minCanales&#39;, &#39;maxCanales&#39;)
+
+varianzaObjetivo &lt;- function(lambda) {
+  modeloLineal &lt;- lm( perfoRelativa^lambda ~ frecuencia + minMem+ maxMem+ cache+ minCanales+ maxCanales, datos )
+  varianza &lt;- ( summary( modeloLineal ) )$sigma
+  return(varianza)
+}
+
+pasoOptimizarVarianza &lt;- function(inf, medidaI, sup, medidaS)
+{
+  unPasoBiparticion(inf, medidaI, sup, medidaS,
+                    varianzaObjetivo,
+                    optimoBuscado = &quot;min&quot;
+)
+}
+
+optimizarVarianza &lt;- function(n, inf0, sup0)  {
+  iterarBiparticion(n, inf0, sup0, pasoOptimizarVarianza, varianzaObjetivo)
+}</code></pre>
 </div>
 </div>
 <div id="transformando-una-explicadora" class="section level2">
@@ -470,6 +536,7 @@ datos %&gt;% gather( &#39;minMem&#39;, &#39;logMinMem&#39;, &#39;raizMinMem&#39;
 <h1>Ideas no Descabelladas</h1>
 <ul>
 <li>Él dio en clase un truco econométrico que es usar los residuos de un modelo lineal como estimadores de los pesos para hacer cuadrados pesados ordinarios pesados. Es decir, estos residuos pueden ser la matriz de covarianzas. Tengo que releer lo que anotó.</li>
+<li>Regresión no paramétrica por núcleos (la de los kernel de análisis exploratorio).</li>
 </ul>
 </div>
 <div id="ideas-descabelladas" class="section level1">
