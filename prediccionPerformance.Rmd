@@ -152,6 +152,9 @@ optimizarVarianza <- function(n, inf0, sup0)  {
 
 ```
 
+# PENDIENTE:
+
+Mirar qué pasa al aplicar operaciones sobre la variable respuesta en la llamada a LM y si los ajustados son prediccinoes del transformado de la variable respuesta o predicciones de ella. Es una averiguación sencilla pero tengo sueño.  
 
 ## Transformando una Explicadora
 
