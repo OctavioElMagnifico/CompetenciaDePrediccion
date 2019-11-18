@@ -22,11 +22,12 @@ read_table(
 # Exploración
 
 Parece natural introducir una transformada del tiempo de ciclo de procesador que sea la inversa, "frecuencia". Sobre todo porque la relación de "más es mejor" es más intruitiva.
+ Como está medida en nanosegundos, multiplicamos por mil millones para llegar a segundos, pero como ues una medida incómoda tomamos una constante menor. 
 
 ## Gráfico de Facetas
 
 ```{r exploración}
-datos <- mutate( datos, frecuencia = 1/ciclo )
+datos <- mutate( datos, frecuencia = 10^5 * 1/ciclo )
 
 datos %>% gather( 'frecuencia', 'ciclo', 'minMem', 'maxMem', 'cache', 'minCanales', 'maxCanales', key = explicadora, value = valor  ) %>% ggplot() +
             aes( y = perfoRelativa, x = valor, color = explicadora ) +
@@ -126,15 +127,17 @@ iterarBiparticion <- function(n, inf0, sup0, funcionPasoBiparticion, funcionMedi
 ```{r optimizacion en el exponente}
 explicadoras <- c('frecuencia', 'minMem', 'maxMem', 'cache', 'minCanales', 'maxCanales')
 
-# Definimos la función objetivo que sólo toma el parámetro a optimizar y tiene fijos la tabla, modelo, etc. 
+# Definimos la función objetivo que sólo toma el parámetro a optimizar y tiene fijos la tabla, modelo, etc.
 
 varianzaObjetivo <- function(lambda) {
+  datos <- 
   modeloLineal <- lm( perfoRelativa^lambda ~ frecuencia + minMem+ maxMem+ cache+ minCanales+ maxCanales, datos )
-  varianza <- ( summary( modeloLineal ) )$sigma
+  ajustados <- ( modeloLineal$fitted.values )^(1/lambda)
+  varianza <- ( var(ajustados) )
   return(varianza)
 }
 
-# definimos un paso de la optimización, que fija la función de medida u objetivo y el tipo de extremo. 
+# definimos un paso de la optimización, que fija la función de medida u objetivo y el tipo de extremo.
 
 pasoOptimizarVarianza <- function(inf, medidaI, sup, medidaS)
 {
@@ -144,12 +147,18 @@ pasoOptimizarVarianza <- function(inf, medidaI, sup, medidaS)
 )
 }
 
-# usamos la función de iterar para lograr la deseada en este caso. 
+# usamos la función de iterar para lograr la deseada en este caso.
 
 optimizarVarianza <- function(n, inf0, sup0)  {
   iterarBiparticion(n, inf0, sup0, pasoOptimizarVarianza, varianzaObjetivo)
 }
+```
 
+```{r ¿qué estoy midiendo?}
+modeloPrueba <- lm( perfoRelativa^2 ~ minMem + frecuencia, datos )
+datos$ajustadosP <- modeloPrueba$fitted.values 
+datos$residuosP <- modeloPrueba$residuals
+datos$perfoCuadrado <- ( modeloPrueba$perfoRelativa )^2
 ```
 
 # PENDIENTE:
@@ -177,6 +186,8 @@ Los dos problemas son la acumulación de los datos en los primeros valores de la
 
 * Él dio en clase un truco econométrico que es usar los residuos de un modelo lineal como estimadores de los pesos para hacer cuadrados pesados ordinarios pesados. Es decir, estos residuos pueden ser la matriz de covarianzas. Tengo que releer lo que anotó. 
 * Regresión no paramétrica por núcleos (la de los kernel de análisis exploratorio).
+* Probablemente sea mejor transformar explicadoras con un método análogo a PCA que seleccinoar modelo, para predicción. 
+* Escalar las variables, son de escalas muy diferentes. 
 
 # Ideas Descabelladas
 
