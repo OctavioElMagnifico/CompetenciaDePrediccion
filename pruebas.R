@@ -12,6 +12,7 @@ library(quantregForest)
 library(KRLS)
 library(kernlab)
 library(nnls)
+set.seed(1042)
 
 datos <- read_table(
   "Concurso_Estima.txt",
@@ -186,9 +187,9 @@ qrfres <- train(modelosIdenticos[[1]],
 ## Random Forest	rf	Classification, Regression	randomForest	mtry
 
 
-rfres <- train(modelosRadicales[[2]],
+rfres <- train(modelosIdenticos[[2]],
                 datos,
-                trcontrol = trContRad,
+                trcontrol = trContId,
                 method = "rf",
                 tuneGrid = expand.grid( mtry = 3:7 )
                 )
@@ -240,9 +241,9 @@ rvmres <- train(modelosLogaritmicos[[2]],
 ## Non-Negative Least Squares	nnls	Regression	nnls	None
 
 
-nnlsres <- train(modelosRadicales[[1]],
+nnlsres <- train(modelosIdenticos[[3]],
                 datos,
-                trcontrol = trContRad,
+                trcontrol = trContId,
                 method = "nnls"
                 )
 
@@ -252,6 +253,16 @@ nnlsres <- train(modelosRadicales[[1]],
 
 # Espio los "mejores modelos" rapidamente
 arrange(res, aRMSE) %>% head(4)
+
+## Bosques sin Caret
+
+indicesPrueba <- sample(x=1:nrow(datos),size=50)
+entrenamiento <- datos[-indicesPrueba,]
+prueba <- datos[indicesPrueba,]
+bosquePerfo <- randomForest(perfo~.,entrenamiento,mtry=3,importance=TRUE, na.action = na.omit)
+ajustadosBosque <- predict(bosquePerfo, prueba,type="response")
+residuosBosque <- prueba$perfo - ajustadosBosque
+
 
 # Ignorar, esto servira para predecir mas adelante
 modelo <- lm(disp ~ cyl, mtcars)
