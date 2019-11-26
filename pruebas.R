@@ -6,6 +6,12 @@ library(caret)
 # install.packages(glmnetURL, repos=NULL, type="source")
 library(glmnet)
 library(pls)
+#modelos esotéricos
+library(randomForest)
+library(quantregForest)
+library(KRLS)
+library(kernlab)
+library(nnls)
 
 datos <- read_table(
   "Concurso_Estima.txt",
@@ -148,17 +154,70 @@ lassores <- train(modelosRadicales[[5]],
       trControl = trContRad, metric = "aRMSE", maximize = FALSE,
       method = "glmnet", tuneGrid = glmnetGrid
 )
-plsres <- train(modelosRadicales[[2]],
+
+plsres <- train(modelosLogaritmicos[[1]],
       datos,
-      trControl = trContDef,
+      trControl = trContLog,
       method = "pls", tuneGrid = expand.grid(ncomp = 1:5)
 )
+
+poires <- train(modelosIdenticos[[5]],
+                datos,
+                trControl = trContId,
+                method = "glm", family = "poisson"
+                )
 
 res <- bind_rows(
   lmres,
   as_tibble(lassores$results),
   as_tibble(plsres$results)
 )
+
+## Para Bosque Aleatorio
+## Quantile Random Forest	qrf	Regression	quantregForest	mtry
+
+qrfres <- train(modelosIdenticos[[1]],
+                datos,
+                trcontrol = trContId,
+                method = "qrf",
+                tuneGrid = expand.grid( mtry = 5:10 )
+)
+
+## Random Forest	rf	Classification, Regression	randomForest	mtry
+
+
+rfres <- train(modelosRadicales[[2]],
+                datos,
+                trcontrol = trContRad,
+                method = "rf",
+                tuneGrid = expand.grid( mtry = 3:7 )
+                )
+
+## Pâra GAM
+## Regresión de Nucleos
+
+## Polynomial Kernel Regularized Least Squares	krlsPoly	Regression	KRLS	lambda, degree
+
+# Este método se niega a ceptar 'trControl'. diría que queda descartado.
+
+krlspolyres <- train(modelosIdenticos[[2]],
+               datos,
+               method = "krlsPoly",
+               tuneGrid = expand.grid(
+                                      lambda = 10^( seq(-1,0.5,by=0.1) ),
+                                      degree = 1
+                                      )
+               )
+
+
+
+## Relevance Vector Machines with Linear Kernel	rvmLinear	Regression	kernlab	None
+## Relevance Vector Machines with Polynomial Kernel	rvmPoly	Regression	kernlab	scale, degree
+## Relevance Vector Machines with Radial Basis Function Kernel	rvmRadial	Regression	kernlab	sigma
+## Non-Negative Least Squares	nnls	Regression	nnls	None
+#robusto
+## Robust Linear Model	rlm	Regression	MASS	intercept, psi
+
 
 # Espio los "mejores modelos" rapidamente
 arrange(res, aRMSE) %>% head(4)
