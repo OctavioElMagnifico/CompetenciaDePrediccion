@@ -5,6 +5,7 @@ library(caret)
 # glmnetURL <- "https://cran.r-project.org/src/contrib/Archive/glmnet/glmnet_2.0-18.tar.gz"
 # install.packages(glmnetURL, repos=NULL, type="source")
 library(glmnet)
+library(pls)
 
 datos <- read_table(
   "Concurso_Estima.txt",
@@ -113,7 +114,7 @@ modelosLogaritmicos <- list(
   log(perfo) ~ polym(freq, prommem, cache, promcan, degree = 4)
 )
 
-alfa <- 0.85
+alfa <- 0.8
 summaryId <- adHocSummary(alfa, identity) # Id(entidad)
 summaryRad <- adHocSummary(alfa, function(x) x^2) # Rad(ical)
 summaryLog <- adHocSummary(alfa, exp)
@@ -130,34 +131,41 @@ trContLog <- trainControl(
   summaryFunction = summaryLog,
   method = "LGOCV", number = 100, p = 0.75
 )
+trContDef <- trainControl(method = "LGOCV", number = 100, p = 0.75)
 
 idres <- comparar(modelosIdenticos, datos, trContId)
 radres <- comparar(modelosRadicales, datos, trContRad)
 logres <- comparar(modelosLogaritmicos, datos, trContLog)
-res <- bind_rows(idres, radres, logres)
+lmres <- bind_rows(idres, radres, logres)
 
-unmodelo <- modelosRadicales[[5]]
 glmnetGrid <- expand.grid(
   alpha = c(1),
   lambda = 10^seq(-1.5, 1, 0.05)
 )
 
-lassores <- train(unmodelo,
+lassores <- train(modelosRadicales[[5]],
       datos,
       trControl = trContRad, metric = "aRMSE", maximize = FALSE,
       method = "glmnet", tuneGrid = glmnetGrid
 )
-plsres <- train(unmodelo,
+plsres <- train(modelosRadicales[[2]],
       datos,
-      trControl = trContRad, metric = "aRMSE", maximize = FALSE,
-      method = "pls", tuneGrid = expand.grid(ncomp = 1:20)
+      trControl = trContDef,
+      method = "pls", tuneGrid = expand.grid(ncomp = 1:5)
 )
 
+res <- bind_rows(
+  lmres,
+  as_tibble(lassores$results),
+  as_tibble(plsres$results)
+)
 
+# Espio los "mejores modelos" rapidamente
+arrange(res, aRMSE) %>% head(4)
+
+# Ignorar, esto servira para predecir mas adelante
 modelo <- lm(disp ~ cyl, mtcars)
 predecir <- function(newdata){
   predict(modelo, newdata)
 }
-
-
 save("modelo", "predecir", file = "modelo.RData")
