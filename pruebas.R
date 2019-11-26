@@ -212,9 +212,40 @@ krlspolyres <- train(modelosIdenticos[[2]],
 
 
 ## Relevance Vector Machines with Linear Kernel	rvmLinear	Regression	kernlab	None
+
+##Esta familia tiene problemas con la matriz.
+
+rvmres <- train(modelosRadicales[[1]],
+               datos,
+               trcontrol = trContRad,
+               method = "rvmLinear"
+               )
+
 ## Relevance Vector Machines with Polynomial Kernel	rvmPoly	Regression	kernlab	scale, degree
+
+rvmres <- train(modelosLogaritmicos[[2]],
+                datos,
+                trcontrol = trContLog,
+                method = "rvmPoly",
+                tuneGrid = expand.grid(
+                  scale = seq(0.01,1,by=0.01),
+                  degree = 2:4
+                )
+                )
+
 ## Relevance Vector Machines with Radial Basis Function Kernel	rvmRadial	Regression	kernlab	sigma
+
+
+
 ## Non-Negative Least Squares	nnls	Regression	nnls	None
+
+
+nnlsres <- train(modelosRadicales[[1]],
+                datos,
+                trcontrol = trContRad,
+                method = "nnls"
+                )
+
 #robusto
 ## Robust Linear Model	rlm	Regression	MASS	intercept, psi
 
