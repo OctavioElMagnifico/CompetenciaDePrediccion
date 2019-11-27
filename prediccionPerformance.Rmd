@@ -3,18 +3,23 @@ title: 'Clasificación'
 author: 'Barrera Borla, Gonzalo y Duarte, Octavio M.'
 date: '27 de Noviembre'
 output:
-  html_document
+  pdf_document: 
+    latex_engine: xelatex
+  # html_document
 ---
 
-```{r librerias}
+```{r librerias, echo = F}
 library('tidyverse')
 library('randomForest')
 library('caret')
+library('knitr')
+knitr::opts_chunk$set(echo=F, cache=F, warning = F, message = F, fig.align = 'left' )
+options(knitr.table.format='latex', scipen = 10, digits = 4)
 ```
 
 ### Epílogo
 
-*Ignorante que blasonas de sabio: angustiado te veo entre el infinito del pasado y el infinito del porvenir. Quisieras poner límite entre estos dos infinitos y detenerte... Siéntate antes bajo un árbol con un cántaro de vino y olvidarás tu impotencia.* 
+*Ignorante que blasonas de sabio: te veo angustiado entre el infinito del pasado y el infinito del porvenir. Quisieras poner límite entre estos dos infinitos y detenerte... Siéntate antes bajo un árbol con un cántaro de vino y olvidarás tu impotencia.* 
 
 Omar Jayam, Rubaiyat. 
 
@@ -29,10 +34,10 @@ read_table(
 
 # Exploración
 
-Parece natural introducir una transformada del tiempo de ciclo de procesador que sea la inversa, "freq". Sobre todo porque la relación de "más es mejor" es más intruitiva.
- Como está medida en nanosegundos, multiplicamos por mil millones para llegar a segundos, pero como ues una medida incómoda tomamos una constante menor. 
+Parece natural introducir una transformada del tiempo de ciclo de procesador que sea la inversa, "freq". Sobre todo porque la relación de "más es mejor" es más intuitiva.
 
 ## Gráfico de Facetas
+
 
 ```{r exploración}
 datos <- mutate( datos, freq = 10^2 * 1/ciclo )
@@ -43,11 +48,16 @@ datos %>% gather( 'freq', 'ciclo', 'minmem', 'maxmem', 'cache', 'mincan', 'maxca
   facet_wrap( .~explicadora, scales = "free_x" )
 ```
 
+En este gráfico anticipamos algunos patrones que pueden parecer preocupantes.
+La forma cónica en que se disponen los puntos parece indicar que si se adaptara un modelo lineal (al menos uno monovariado respecto a cualquiera de ellas) este sería heteroscedástico. Es muy probable que alguna transformada de la variable `perfo` nos de un mejor rendimiento. 
+
+
 ## Correlaciones
+
 
 ```{r correlaciones}
 correlaciones <- cor( datos )
-correlaciones
+correlaciones %>% kable()
 ```
 
 * La mejor correlación con la variable en estudio la presentan las variables asociadas a la memoria `minmem` con `r correlaciones['minmem','perfo']` y `maxmem` `r correlaciones['maxmem','perfo']`.
@@ -55,9 +65,12 @@ correlaciones
 * Excepto `ciclo` todas las demás tienen una correlación suficiente como para suponer que se puede extraer información útil al modelo de ellas. La transformada de `ciclo`, `freq` sí muestra una correlación razonable.
 
 
-# Intento de Transformar para lograr Linealidad y Homoscedasticidad.
+# Intento de Transformar la variable Objetivo
+
+Vemos si disminuyen estos patrones gráficos preocupantes.
 
 ## Transformando la Repuesta
+
 
 ```{r minmem transformada}
 datos <- mutate( datos, logPerfo = log(perfo), raizPerfo = sqrt(perfo) )
@@ -68,33 +81,87 @@ datos %>% gather( 'logPerfo', 'raizPerfo' , key = respuesta, value = valor  ) %>
   facet_grid( .~respuesta )
 ```
 
-Ambas transformaciones parecen haber reducido drásticamente la heteroscedasticidad. No pude poner la original en el gráfico porque no logro que `facet_grid` responda al comando `scales = "free"` y como tiene una escala enorme no dejaba visualizar las transformadas. 
+Ambas transformaciones parecen haber reducido drásticamente la forma cónica que ingenuamente sugiere heteroscedasticidad. Vale la pena comparar el rendimiento de estas transformaciones.
+
 
 # Elección de un Método
 
-Armados de estas nociones para orientarnos, recurrimos a iterar una lista muy grande de modelos sobre los métodos que conocemos. 
-Un paquete que homogeneiza esta tarea para una gran cantidad de algoritmos es `caret`. Este separa la tarea de realizar una predicción en varias etapas, todas modulares y por lo tanto fue posible porgramar la métrica particular que estamos usando en esta trabajo, *alfa podada* al 80%. 
-Además, se definió esta medición de tal forma que acepta una función inversa. De esta manera, pudimos realizar regresiones sobre modelos donde la variable está transformada (dado que las observaciones preliminares parecieron revelar la ventaja de estas transformaciones) pero medir el *Error Medio Cuadrático Alfa Podado* sobre nuestra variable respuesta original. 
+Armados de estas nociones para orientarnos, recurrimos a iterar una lista muy grande de modelos sobre los métodos que conocemos. Dadas las particulares circunstancias de una competencia, decidimos priorizar la precisión de las predicciones sobre otras cualidades usualmente deseables como la interpretabilidad. 
+
+Un paquete que homogeneiza esta la tarea de entrenar modelos para una gran cantidad de algoritmos es `caret`. Este separa la tarea de realizar una predicción en varias etapas, todas modulares y por lo tanto fue posible programar la métrica particular que estamos usando en esta trabajo, *alfa podada* al 80%. El paquete tiene interfases para una gran cantidad de librerías que abarcan regresiones de muchas clases. Intentamos con todas las que nos parecieron razonables, cubriendo la mayoría de los métodos que conocemos y algunos nuevos. 
+
+Además, se definió esta medición de tal forma que acepta una función inversa. De esta manera, pudimos realizar regresiones sobre modelos donde la variable está transformada (dado que las observaciones preliminares parecieron revelar la ventaja de estas transformaciones, $y_1=\log{y}$ e $y_2=\sqrt{y}$) pero medir el *Error Medio Cuadrático Alfa Podado* sobre nuestra variable respuesta original. 
+
+Probamos modelos sobre polinomios de hasta tercer grado respecto a las variables.
+
 Una primera observación es que esta poda homogeneiza drásticamente el rendimiento de los modelos y por lo tanto fue una batalla cabeza a cabeza, al menos entre los modelos que nosotros conocemos. 
+
 
 # Modelo Seleccionado
 
-El modelo seleccionado fue "Bosques Aleatorios" en su adaptación para regresiones, implementado por la librería `randomForest`, la más clásica de las disponibles, con código de los desarrolladores originales del algoritmo.
+ El modelo seleccionado fue "Bosques Aleatorios" en su adaptación para regresiones, implementado por la librería `randomForest`, la más clásica de las disponibles, con código de los desarrolladores originales del algoritmo.
+ Si bien la estimación del error medio cuadrático alfa podado de simulación es aleatoria, esta medida osciló alrededor de 10.75 y fue el resultado más pequeño que pudimos lograr por un margen que podría llamarse relativamente grande.
+
+$$
+  \log{Y}\approx F\left(\sum_{i=1}^{6}\alpha_{i}\cdot x_{i}+\sum_{i=1}^{6}\beta_{i}\cdot x_{i}^{2}+\sum_{j=1}^{6}\sum_{i=1;i<j}^{6}\gamma_{ij}\cdot x_{i}x_{j}\right)
+$$
+
+Debido a que la función obtenida en este caso es el conjunto de árboles que en cada caso deben votar para determinar cómo asignamos el valor predicho, puede decirse que la inteligibilidad y comunicabilidad de este modelo son bajas, así como su parsimonia (es poco sensible a variables expurias pero no las elimina).
+
+Podemos observar la medida de *importancia* de cada variable. Esta cuantifica el incremento en el error al excluir la regresora en cuestión.
+
+`r bosqueLog$importance %>% kable()`
+
+Como se puede ver, si bien hay variables de mayor importancia ninguna es irrelevante. 
 
 ```{r bosque}
 datos$obs <- seq(1:nrow(datos))
 atipicos1 <- c(123,27)
 datos2 <- datos[-atipicos1,]
-bosqueLog <- randomForest( log(perfo) ~ (freq + mincan + maxcan + minmem + maxmem + cache)^2, datos2, mtry = 2 )
+bosqueLog <- randomForest( log(perfo) ~ (freq + mincan + maxcan + minmem + maxmem + cache)^2, datos2, mtry = 2, ntree = 2000 )
 
 datos2$ajustados <- bosqueLog$predicted %>% exp()
 
 datos2 <- mutate( datos2, residuos = perfo - ajustados )
+```
 
+## Diagrama QQ 
+
+Comparamos las performances relativas ajustadas y las observadas.
+
+```{r QQ}
 datos2 %>% ggplot() +
-  aes( x = perfo , y = ajustados, label = obs ) +
-  geom_label()
+  aes( x = perfo , y = ajustados, color = residuos ) +
+  geom_point() +
+  ggtitle("Comparación entre Valores Observados y Ajustados.")
+```
+
+En línea con la métrica propuesta para esta competencia, repetimos el mismo gráfico con los datos de mayor residuo eliminados.
+
+```{r QQpodado}
+datos2 %>% arrange(  abs( residuos ) ) %>% slice( 1:124 )  %>% ggplot() +
+  aes( x = perfo , y = ajustados,  color = residuos ) +
+  geom_point() +
+  ggtitle("Comparación entre Valores Observados y Ajustados, podada.")
+```
+
+## Residuos contra Perfo
+
+
+```{r residuos}
+datos2 %>% arrange(  abs( residuos ) ) %>% slice( 1:124 )  %>% ggplot() +
+  aes( x = perfo , y = residuos ) +
+  geom_point() +
+  ggtitle( "Residuos contra Perfo." )
 ```
 
 
+# Uso de la Función Enviada, Predecir.R
 
+  Esta espera encontrar en el directorio donde se halle un archivo llamado `tests.txt` con el mismo formato del archivo que `Concurso_Estima.txt` que recibimos. 
+  
+  Al ejecutar `predecir.R` esta levanta la sesión llamada `modelo.RData` que contiene el modelo seleccionado entrenado y genera las predicciones, que quedan almacenadas en un nuevo archivo llamado `preds.txt`.
+  
+  Alternativamente, se puede directamente cargar la sesión `modelo.RData` y predecir usando la clásica interface de R ,en este caso con `predict(modelo,DatosNuevos)`.
+  
+  Nuestro desarrollo está resumido en el guión `entrenar.R`.
