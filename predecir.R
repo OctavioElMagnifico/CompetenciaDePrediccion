@@ -1,6 +1,8 @@
 # Producir predicciones a partir de un archivo de test.
 # $ Rscript predecir.R <test_data_file> <preds_file>
 # Sin argumentos, lee de 'test.txt' y escribe a 'preds.txt'
+library(randomForest)
+library(tidyverse)
 
 wd <- "~/maestria/CompetenciaDePrediccion"
 fname <- "modelo.RData"
@@ -18,6 +20,11 @@ if (is.na(args[1])) {
   args[1] = "test.txt"
 }
 
-datos <- read.table(args[1])
+datos <- read_table(
+  args[1],
+  col_names = c('ciclo', 'minmem', 'maxmem', 'cache', 'mincan', 'maxcan', 'perfo')
+) %>% mutate(
+  freq = 1/ciclo)
+
 preds <- predecir(newdata=datos)
 write.table(preds, args[2])
