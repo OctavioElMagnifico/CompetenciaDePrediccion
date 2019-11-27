@@ -2,9 +2,8 @@
 # $ Rscript predecir.R <test_data_file> <preds_file>
 # Sin argumentos, lee de 'test.txt' y escribe a 'preds.txt'
 library(randomForest)
-library(tidyverse)
 
-wd <- "~/maestria/CompetenciaDePrediccion"
+wd <- getwd()
 fname <- "modelo.RData"
 # - `fname` contiene la funcion `predecir` que a partir de un dataframe,
 #   produce un vector de predicciones.
@@ -20,11 +19,11 @@ if (is.na(args[1])) {
   args[1] = "test.txt"
 }
 
-datos <- read_table(
+datos <- read.table(
   args[1],
-  col_names = c('ciclo', 'minmem', 'maxmem', 'cache', 'mincan', 'maxcan', 'perfo')
-) %>% mutate(
-  freq = 1/ciclo)
+  col.names = c('ciclo', 'minmem', 'maxmem', 'cache', 'mincan', 'maxcan', 'perfo')
+)
+datos$freq = 1/datos$ciclo
 
 preds <- predecir(newdata=datos)
 write.table(preds, args[2])
