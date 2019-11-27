@@ -25,5 +25,5 @@ datos <- read.table(
 )
 datos$freq = 1/datos$ciclo
 
-preds <- predecir(newdata=datos)
+preds <- exp( predecir(newdata=datos) )
 write.table(preds, args[2], row.names = FALSE, col.names = FALSE)
